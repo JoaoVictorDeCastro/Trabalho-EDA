@@ -1,19 +1,16 @@
 #include "FilmeHash.h"
 
- 
 //Concatena título e ano em uma única string "titulo|ano"
-//Exemplo: "The Matrix|1999"
 static void _montar_chave(const char *titulo, int ano, char *chave, int sz) {
     snprintf(chave, sz, "%s|%d", titulo, ano);
 }
 
 //djb2
-//Retorna um valor sem sinal que deve ser reduzido módulo m.
 static unsigned long _djb2(const char *str) {
     unsigned long h = 5381;
     int c;
     while ((c = (unsigned char)*str++))
-        h = ((h << 5) + h) ^ c;   /* h = h*33 XOR c */
+        h = ((h << 5) + h) ^ c;   //h = h*33 XOR c
     return h;
 }
 
@@ -59,7 +56,7 @@ void FH_insere(const char *tabHash, const char *dados, int m,
     FILE *fpd = fopen(dados, "rb+");
     if (!fpd) {
         fclose(fph);
-        //arquivo de dados ainda não existe → cria
+        //se o arquivo de dados ainda não existe, cria
         fpd = fopen(dados, "wb");
         if (!fpd) { perror("FH_insere: dados"); exit(1); }
         fclose(fpd);
@@ -68,17 +65,17 @@ void FH_insere(const char *tabHash, const char *dados, int m,
     }
 
     int ant = -1;
-    int prim_livre = -1;    //1º slot com status=0 no chain
+    int prim_livre = -1;    //1º slot com status=0
     TF aux;
 
-    //percorre o chain da hash
+    //percorre a hash
     int cur = pos;
     while (cur != -1) {
         fseek(fpd, cur, SEEK_SET);
         fread(&aux, sizeof(TF), 1, fpd);
 
         if (strcmp(aux.pessoa, pessoa) == 0) {
-            /* pessoa já existe → atualiza e sai */
+            //se a pessoa já existe, atualiza e sai
             strncpy(aux.relacao, relacao, FH_REL_MAX - 1);
             aux.relacao[FH_REL_MAX - 1] = '\0';
             strncpy(aux.papel, papel, FH_ROLE_MAX - 1);
@@ -131,7 +128,7 @@ void FH_insere(const char *tabHash, const char *dados, int m,
             fseek(fpd, ant, SEEK_SET);
             fwrite(&aux, sizeof(TF), 1, fpd);
         } else {
-            //hash estava vazio → atualiza tabHash[h]
+            //se a hash estava vazia, atualiza tabHash[h]
             fseek(fph, h * sizeof(int), SEEK_SET);
             fwrite(&nova_pos, sizeof(int), 1, fph);
         }
@@ -253,63 +250,57 @@ void FH_listar_filme(const char *tabHash, const char *dados, int m,
     fclose(fpd);
 }
 
-/* =========================================================
- *  _parse_linha
- *   Parseia uma linha do Relationships.txt e extrai:
- *     pessoa, relacao, titulo, papel
- *   Formato:
- *     START Person | <pessoa> | <relacao> | END Movie | <titulo> [| role: <papel>]
- *   Retorna 1 se OK, 0 se linha inválida.
- * ========================================================= */
+//_parse_linha
+//Parseia uma linha do Relationships.txt e extrai:
 static int _parse_linha(const char *linha,
                         char *pessoa,  char *relacao,
                         char *titulo,  char *papel)
 {
-    /* Copia para não destruir o original */
+    //Copia para não destruir o original
     char buf[512];
     strncpy(buf, linha, 511);
     buf[511] = '\0';
 
-    /* Remove '\n' e '\r' */
+    //Remove '\n' e '\r'
     char *p = buf + strlen(buf) - 1;
     while (p >= buf && (*p == '\n' || *p == '\r' || *p == ' '))
         *p-- = '\0';
 
-    /* Tokeniza por " | " */
+    //Tokeniza por "|"
     const char *sep = " | ";
-    char *tok = strtok(buf, "|");   /* "START Person " */
+    char *tok = strtok(buf, "|");
     if (!tok) return 0;
 
-    tok = strtok(NULL, "|");        /* " <pessoa> "    */
+    tok = strtok(NULL, "|");
     if (!tok) return 0;
     while (*tok == ' ') tok++;
     p = tok + strlen(tok) - 1;
     while (p >= tok && *p == ' ') *p-- = '\0';
     strncpy(pessoa, tok, FH_NOME_MAX - 1);
 
-    tok = strtok(NULL, "|");        /* " <relacao> "   */
+    tok = strtok(NULL, "|");
     if (!tok) return 0;
     while (*tok == ' ') tok++;
     p = tok + strlen(tok) - 1;
     while (p >= tok && *p == ' ') *p-- = '\0';
     strncpy(relacao, tok, FH_REL_MAX - 1);
 
-    tok = strtok(NULL, "|");        /* " END Movie "   */
+    tok = strtok(NULL, "|");
     if (!tok) return 0;
 
-    tok = strtok(NULL, "|");        /* " <titulo> "    */
+    tok = strtok(NULL, "|");
     if (!tok) return 0;
     while (*tok == ' ') tok++;
     p = tok + strlen(tok) - 1;
     while (p >= tok && *p == ' ') *p-- = '\0';
     strncpy(titulo, tok, FH_NOME_MAX - 1);
 
-    /* papel é opcional */
+    //papel preenchiento opcional 
     papel[0] = '\0';
-    tok = strtok(NULL, "|");        /* " role: <papel> " ou NULL */
+    tok = strtok(NULL, "|");
     if (tok) {
         while (*tok == ' ') tok++;
-        /* remove prefixo "role: " ou "roles: " */
+        //remove prefixo "role: " ou "roles: "
         if (strncmp(tok, "role: ", 6) == 0)       tok += 6;
         else if (strncmp(tok, "roles: ", 7) == 0)  tok += 7;
         p = tok + strlen(tok) - 1;
@@ -317,7 +308,7 @@ static int _parse_linha(const char *linha,
         strncpy(papel, tok, FH_ROLE_MAX - 1);
     }
 
-    (void)sep; /* evita warning de variável não usada */
+    (void)sep;
     return 1;
 }
 
